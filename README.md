@@ -65,6 +65,8 @@ timeline_flash_duration=300
 chapters=dots
 # timeline chapters indicator opacity
 chapters_opacity=0.3
+# timeline chapters indicator size
+chapters_size=4
 
 # where to display volume controls, set to empty to disable
 volume=right
