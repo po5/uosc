@@ -528,6 +528,10 @@ function get_adjacent_media_file(file_path, direction)
 	end
 end
 
+function time_sort(a, b)
+	return a.time < b.time
+end
+
 -- Element
 --[[
 Signature:
