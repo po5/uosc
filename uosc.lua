@@ -1453,11 +1453,11 @@ function render_window_controls(this)
 	-- Window title
 	if options.title and state.media_title then
 		local spacing = math.ceil(config.window_controls.height * 0.25)
-		local fontsize = math.floor(config.window_controls.height - (spacing * 2))
+		local fontsize = math.floor(config.window_controls.height - (spacing * 1.5))
 		local clip_coordinates = '0,0,'..(minimize.ax - spacing)..','..config.window_controls.height
 
 		ass:new_event()
-		ass:append('{\\q2\\blur0\\bord0\\shad1\\1c&HFFFFFF\\4c&H000000\\fn'..config.font..'\\fs'..fontsize..'\\clip('..clip_coordinates..')')
+		ass:append('{\\q2\\blur0\\bord2\\shad0\\1c&H'..options.color_background_text..'&\\3c&H'..options.color_foreground_text..'\\fn'..config.font..'\\fs'..fontsize..'\\clip('..clip_coordinates..')')
 		ass:append(ass_opacity(1, opacity))
 		ass:pos(0 + spacing, config.window_controls.height / 2)
 		ass:an(4)
