@@ -1352,7 +1352,7 @@ function render_timeline(this)
 		local hovered_seconds = mp.get_property_native('duration') * (cursor.x / display.width)
 		local box_half_width_guesstimate = (this.font_size * 4.2) / 2
 		ass:new_event()
-		ass:append('{\\blur0\\bord0\\shad1\\1c&H'..options.color_background_text..'\\4c&H'..options.color_background..'\\fn'..config.font..'\\fs'..this.font_size..'')
+		ass:append('{\\blur0\\bord2\\shad0\\1c&H'..options.color_background_text..'&\\3c&H262626\\fn'..config.font..'\\fs'..this.font_size)
 		ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1)))
 		ass:pos(math.min(math.max(cursor.x, box_half_width_guesstimate), display.width - box_half_width_guesstimate), fay)
 		ass:an(2)
@@ -1457,7 +1457,7 @@ function render_window_controls(this)
 		local clip_coordinates = '0,0,'..(minimize.ax - spacing)..','..config.window_controls.height
 
 		ass:new_event()
-		ass:append('{\\q2\\blur0\\bord2\\shad0\\1c&H'..options.color_background_text..'&\\3c&H'..options.color_foreground_text..'\\fn'..config.font..'\\fs'..fontsize..'\\clip('..clip_coordinates..')')
+		ass:append('{\\q2\\blur0\\bord2\\shad0\\1c&H'..options.color_background_text..'&\\3c&H262626\\fn'..config.font..'\\fs'..fontsize..'\\clip('..clip_coordinates..')')
 		ass:append(ass_opacity(1, opacity))
 		ass:pos(0 + spacing, config.window_controls.height / 2)
 		ass:an(4)
