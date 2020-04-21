@@ -2060,6 +2060,8 @@ if itable_find({'flash', 'static'}, options.pause_indicator) then
 	elements:add('pause_indicator', Element.new({
 		base_icon_opacity = options.pause_indicator == 'flash' and 1 or 0.8,
 		paused = false,
+		is_flash = options.pause_indicator == 'flash',
+		is_static = options.pause_indicator == 'static',
 		opacity = 0,
 		init = function(this)
 			local initial_call = true
@@ -2087,22 +2089,24 @@ if itable_find({'flash', 'static'}, options.pause_indicator) then
 			local ass = assdraw.ass_new()
 
 			-- Background fadeout
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H'..options.color_background..'}')
-			ass:append(ass_opacity(0.3, this.opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(0, 0, display.width, display.height)
-			ass:draw_stop()
+			if this.is_static then
+				ass:new_event()
+				ass:append('{\\blur0\\bord0\\1c&H'..options.color_background..'}')
+				ass:append(ass_opacity(0.3, this.opacity))
+				ass:pos(0, 0)
+				ass:draw_start()
+				ass:rect_cw(0, 0, display.width, display.height)
+				ass:draw_stop()
+			end
 
 			-- Icon
-			local size = round((math.min(display.width, display.height) * 0.25) / 2)
+			local size = round((math.min(display.width, display.height) * (this.is_static and 0.20 or 0.15)) / 2)
 
 			size = size + size * (1 - this.opacity)
 
 			if this.paused then
 				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
+				ass:append('{\\blur0\\bord1\\1c&H'..options.color_foreground..'\\3c&H'..options.color_background..'}')
 				ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
 				ass:pos(display.width / 2, display.height / 2)
 				ass:draw_start()
@@ -2110,15 +2114,15 @@ if itable_find({'flash', 'static'}, options.pause_indicator) then
 				ass:draw_stop()
 
 				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
+				ass:append('{\\blur0\\bord1\\1c&H'..options.color_foreground..'\\3c&H'..options.color_background..'}')
 				ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
 				ass:pos(display.width / 2, display.height / 2)
 				ass:draw_start()
 				ass:rect_cw(size / 3, -size, size, size)
 				ass:draw_stop()
-			elseif options.pause_indicator == 'flash' then
+			elseif this.is_flash then
 				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
+				ass:append('{\\blur0\\bord1\\1c&H'..options.color_foreground..'\\3c&H'..options.color_background..'}')
 				ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
 				ass:pos(display.width / 2, display.height / 2)
 				ass:draw_start()
