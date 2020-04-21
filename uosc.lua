@@ -1621,6 +1621,9 @@ function render_window_controls(this)
 		ass:append(ass_opacity(1, opacity))
 		ass:pos(0 + spacing, config.window_controls.height / 2)
 		ass:an(4)
+		if state.playlist_count > 1 then
+			ass:append(string.format('%d/%d - ', state.playlist_pos, state.playlist_count))
+		end
 		ass:append(state.media_title)
 	end
 
@@ -2769,6 +2772,8 @@ end)()
 mp.observe_property('chapter-list', 'native', parse_chapters)
 mp.observe_property('duration', 'number', create_state_setter('duration'))
 mp.observe_property('media-title', 'string', create_state_setter('media_title'))
+mp.observe_property('playlist-pos-1', 'number', create_state_setter('playlist_pos'))
+mp.observe_property('playlist-count', 'number', create_state_setter('playlist_count'))
 mp.observe_property('fullscreen', 'bool', create_state_setter('fullscreen'))
 mp.observe_property('window-maximized', 'bool', create_state_setter('maximized'))
 mp.observe_property('idle-active', 'bool', create_state_setter('idle'))
