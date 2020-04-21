@@ -1613,7 +1613,7 @@ function render_window_controls(this)
 	-- Window title
 	if options.title and state.media_title then
 		local spacing = math.ceil(config.window_controls.height * 0.25)
-		local fontsize = math.floor(config.window_controls.height - (spacing * 2))
+		local fontsize = math.floor(config.window_controls.height - (spacing * 1.5))
 		local clip_coordinates = '0,0,'..(minimize.ax - spacing)..','..config.window_controls.height
 
 		ass:new_event()
