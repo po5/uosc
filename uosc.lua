@@ -1,6 +1,6 @@
 --[[
 
-uosc 2.3.0 - 2020-Apr-20 | https://github.com/darsain/uosc
+uosc 2.4.0 - 2020-Apr-21 | https://github.com/darsain/uosc
 
 Minimalistic cursor proximity based UI for MPV player.
 
@@ -8,9 +8,12 @@ uosc replaces the default osc UI, so that has to be disabled first.
 Place these options into your `mpv.conf` file:
 
 ```
-osc=no     # required so that the 2 UIs don't fight each other
-border=no  # if you disable window border, uosc will draw
-           # its own pretty window controls (minimize, maximize, close)
+# required so that the 2 UIs don't fight each other
+osc=no
+# uosc provides its own seeking/volume indicators, so you also don't need this
+osd-bar=no
+# uosc will draw its own window controls if you disable window border
+border=no
 ```
 
 Options go in `script-opts/uosc.conf`. Defaults:
@@ -31,19 +34,18 @@ timeline_border=1
 # when scrolling above timeline, wheel will seek by this amount of seconds
 timeline_step=5
 # display seekable buffered ranges for streaming videos, syntax `color:opacity`,
-# color is an BBGGRR hex code, set to empty or `no` to disable
+# color is an BBGGRR hex code, set to `none` to disable
 timeline_cached_ranges=345433:0.5
 # briefly show timeline on external changes (e.g. seeking with a hotkey)
 timeline_flash=yes
 
-# timeline chapters style: dots, lines, lines-top, lines-bottom
-# set to empty to disable
+# timeline chapters style: none, dots, lines, lines-top, lines-bottom
 chapters=dots
 chapters_opacity=0.3
 # timeline chapters indicator size
 chapters_size=4
 
-# where to display volume controls (`left` or `right`), set to empty to disable
+# where to display volume controls: none, left, right
 volume=right
 volume_size=40
 volume_size_fullscreen=40
@@ -83,8 +85,8 @@ color_background=000000
 color_background_text=ffffff
 # hide UI when mpv autohides the cursor
 autohide=no
-# fades screen to background color and displays a pause icon when paused
-pause_indicator=no
+# can be: none, flash, static
+pause_indicator=flash
 # display window title (filename) in top window controls bar in no-border mode
 title=no
 # load first file when calling next on a last file in a directory and vice versa
@@ -220,7 +222,7 @@ local options = {
 	color_background = '000000',
 	color_background_text = 'ffffff',
 	autohide = false,
-	pause_indicator = false,
+	pause_indicator = 'flash',
 	title = false,
 	directory_navigation_loops = false,
 	media_types = '3gp,avi,bmp,flac,flv,gif,h264,h265,jpeg,jpg,m4a,m4v,mid,midi,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rmvb,svg,tif,tiff,wav,weba,webm,webp,wma,wmv',
@@ -389,6 +391,8 @@ local word_order_comparator = (function()
 	end
 
 	return function (a, b)
+		a = a:lower()
+		b = b:lower()
 		for i = 1, math.max(#a, #b) do
 			local ai = a:sub(i, i)
 			local bi = b:sub(i, i)
@@ -408,13 +412,18 @@ end)()
 -- Creates in-between frames to animate value from `from` to `to` numbers.
 -- Returns function that terminates animation.
 -- `to` can be a function that returns target value, useful for movable targets.
+-- `speed` is an optional float between 1-instant and 0-infinite duration
 -- `callback` is called either on animation end, or when animation is canceled
-function tween(from, to, setter, callback)
+function tween(from, to, setter, speed, callback)
+	if type(speed) ~= 'number' then
+		callback = speed
+		speed = 0.3
+	end
 	local timeout
 	local getTo = type(to) == 'function' and to or function() return to end
 	local cutoff = math.abs(getTo() - from) * 0.01
 	function tick()
-		from = from + ((getTo() - from) * 0.3)
+		from = from + ((getTo() - from) * speed)
 		local is_end = math.abs(getTo() - from) <= cutoff
 		setter(is_end and getTo() or from)
 		request_render()
@@ -434,12 +443,18 @@ end
 
 -- Kills ongoing animation if one is already running on this element.
 -- Killed animation will not get its `on_end` called.
-function tween_element(element, from, to, setter, callback)
+function tween_element(element, from, to, setter, speed, callback)
+	if type(speed) ~= 'number' then
+		callback = speed
+		speed = 0.3
+	end
+
 	tween_element_stop(element)
 
 	element.stop_current_animation = tween(
 		from, to,
 		function(value) setter(element, value) end,
+		speed,
 		function()
 			element.stop_current_animation = nil
 			call_me_maybe(callback, element)
@@ -458,8 +473,8 @@ function tween_element_stop(element)
 end
 
 -- Helper to automatically use an element property setter
-function tween_element_property(element, prop, from, to, callback)
-	tween_element(element, from, to, function(_, value) element[prop] = value end, callback)
+function tween_element_property(element, prop, from, to, speed, callback)
+	tween_element(element, from, to, function(_, value) element[prop] = value end, speed, callback)
 end
 
 function get_point_to_rectangle_proximity(point, rect)
@@ -491,18 +506,14 @@ function ass_opacity(opacity, fraction)
 	end
 end
 
--- Prepends current working directory to relative paths
-function ensure_absolute_path(path)
-	-- Naive check for absolute paths
-	if path:match('^/') or path:match('^%a+:[/\\]') or path:match('^\\\\') then
-		return normalize_path(path)
-	else
-		return normalize_path(utils.join_path(state.cwd, path))
-	end
-end
-
--- Normalizes slashes to the current platform
+-- Ensures path is absolute and normalizes slashes to the current platform
 function normalize_path(path)
+	-- Ensure path is absolute
+	if not (path:match('^/') or path:match('^%a+:[/\\]') or path:match('^\\\\')) then
+		path = utils.join_path(state.cwd, path)
+	end
+
+	-- Use proper slashes
 	if state.os == 'windows' then
 		return path:gsub('/', '\\')
 	else
@@ -528,7 +539,7 @@ end
 -- Serializes path into its semantic parts
 function serialize_path(path)
 	if is_protocol(path) then return end
-	path = ensure_absolute_path(path)
+	path = normalize_path(path)
 	local parts = split(path, '[\\/]+')
 	local basename = parts and parts[#parts] or path
 	local dirname = #parts > 1 and table.concat(itable_slice(parts, 1, #parts - 1), '/') or nil
@@ -871,6 +882,16 @@ function Menu:open(items, open_item, opts)
 				this.parent_menu:on_display_resize()
 			end
 		end,
+		set_items = function(this, items, props)
+			this.items = items
+			this.selected_item = nil
+			this.active_item = nil
+			if props then
+				for key, value in pairs(props) do this[key] = value end
+			end
+			this:on_display_resize()
+			request_render()
+		end,
 		set_offset_x = function(this, offset)
 			local delta = offset - this.offset_x
 			this.offset_x = offset
@@ -928,6 +949,18 @@ function Menu:open(items, open_item, opts)
 		end,
 		activate_value = function(this, value)
 			this:activate_index(itable_find(this.items, function(_, item) return item.value == value end))
+		end,
+		delete_index = function(this, index)
+			if (index and index >= 1 and index <= #this.items) then
+				local previous_active_value = this.active_index and this.items[this.active_index].value or nil
+				table.remove(this.items, index)
+				this:on_display_resize()
+				if previous_active_value then this:activate_value(previous_active_value) end
+				this:scroll_to_item(this.selected_item)
+			end
+		end,
+		delete_value = function(this, value)
+			this:delete_index(itable_find(this.items, function(_, item) return item.value == value end))
 		end,
 		prev = function(this)
 			local default_anchor = this.scroll_height > this.scroll_step and this:get_centermost_visible_index() or this:get_last_visible_index()
@@ -1414,7 +1447,7 @@ function render_timeline(this)
 	end
 
 	-- Chapters
-	if options.chapters ~= '' and state.chapters ~= nil and #state.chapters > 0 then
+	if options.chapters ~= 'none' and state.chapters ~= nil and #state.chapters > 0 then
 		local half_size = size / 2
 		local dots = false
 		local chapter_size, chapter_y
@@ -2023,39 +2056,77 @@ end
 
 -- STATIC ELEMENTS
 
-if options.pause_indicator then
+if itable_find({'flash', 'static'}, options.pause_indicator) then
 	elements:add('pause_indicator', Element.new({
+		base_icon_opacity = options.pause_indicator == 'flash' and 1 or 0.8,
+		paused = false,
+		opacity = 0,
+		init = function(this)
+			local initial_call = true
+			mp.observe_property('pause', 'bool', function(_, paused)
+				if initial_call then
+					initial_call = false
+					return
+				end
+
+				this.paused = paused
+
+				if options.pause_indicator == 'flash' then
+					this.opacity = 1
+					this:tween_property('opacity', 1, 0, 0.15)
+				else
+					this.opacity = paused and 1 or 0
+					request_render()
+				end
+
+			end)
+		end,
 		render = function(this)
-			if not state.pause then return end
+			if this.opacity == 0 then return end
+
 			local ass = assdraw.ass_new()
 
 			-- Background fadeout
 			ass:new_event()
 			ass:append('{\\blur0\\bord0\\1c&H'..options.color_background..'}')
-			ass:append(ass_opacity(0.3))
+			ass:append(ass_opacity(0.3, this.opacity))
 			ass:pos(0, 0)
 			ass:draw_start()
 			ass:rect_cw(0, 0, display.width, display.height)
 			ass:draw_stop()
 
 			-- Icon
-			local size = round(math.min(display.width, display.height) * 0.3)
+			local size = round((math.min(display.width, display.height) * 0.25) / 2)
 
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
-			ass:append(ass_opacity(0.8))
-			ass:pos(display.width / 2, display.height / 2)
-			ass:draw_start()
-			ass:rect_cw(-size / 2, -size / 2, -size / 6, size / 2)
-			ass:draw_stop()
+			size = size + size * (1 - this.opacity)
 
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
-			ass:append(ass_opacity(0.8))
-			ass:pos(display.width / 2, display.height / 2)
-			ass:draw_start()
-			ass:rect_cw(size / 6, -size / 2, size / 2, size / 2)
-			ass:draw_stop()
+			if this.paused then
+				ass:new_event()
+				ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
+				ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
+				ass:pos(display.width / 2, display.height / 2)
+				ass:draw_start()
+				ass:rect_cw(-size, -size, -size / 3, size)
+				ass:draw_stop()
+
+				ass:new_event()
+				ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
+				ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
+				ass:pos(display.width / 2, display.height / 2)
+				ass:draw_start()
+				ass:rect_cw(size / 3, -size, size, size)
+				ass:draw_stop()
+			elseif options.pause_indicator == 'flash' then
+				ass:new_event()
+				ass:append('{\\blur0\\bord0\\1c&H'..options.color_foreground..'}')
+				ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
+				ass:pos(display.width / 2, display.height / 2)
+				ass:draw_start()
+				ass:move_to(-size * 0.6, -size)
+				ass:line_to(size, 0)
+				ass:line_to(-size * 0.6, size)
+				ass:draw_stop()
+			end
 
 			return ass
 		end
@@ -2767,6 +2838,7 @@ end
 
 -- VALUE SERIALIZATION/NORMALIZATION
 
+options.chapters = itable_find({'dots', 'lines', 'lines-top', 'lines-bottom'}, options.chapters) and options.chapters or 'none'
 options.media_types = split(options.media_types, ' *, *')
 options.subtitle_types = split(options.subtitle_types, ' *, *')
 options.timeline_cached_ranges = (function()
@@ -2925,28 +2997,35 @@ mp.add_key_binding(nil, 'select-subtitles', create_select_tracklist_type_menu_op
 mp.add_key_binding(nil, 'select-audio', create_select_tracklist_type_menu_opener('Audio', 'audio', 'aid'))
 mp.add_key_binding(nil, 'select-video', create_select_tracklist_type_menu_opener('Video', 'video', 'vid'))
 mp.add_key_binding(nil, 'navigate-playlist', function()
-	local items = {}
-	local pos = mp.get_property_number('playlist-pos-1', 0)
-	local active_item
+	function serialize_playlist()
+		local pos = mp.get_property_number('playlist-pos-1', 0)
+		local items = {}
+		local active_item
+		for index, item in ipairs(mp.get_property_native('playlist')) do
+			local is_url = item.filename:find('://')
+			items[index] = {
+				title = is_url and item.filename or serialize_path(item.filename).basename,
+				hint = tostring(index),
+				value = index
+			}
 
-	for index, item in ipairs(mp.get_property_native('playlist')) do
-		local is_url = item.filename:find('://')
-		items[index] = {
-			title = is_url and item.filename or serialize_path(item.filename).basename,
-			hint = tostring(index),
-			value = index
-		}
-
-		if index == pos then active_item = index end
+			if index == pos then active_item = index end
+		end
+		return items, active_item
 	end
 
-	-- Update selected file in playlist navigation menu
-	function handle_file_loaded()
+	-- Update active index and playlist content on playlist changes
+	function handle_playlist_change()
 		if menu:is_open('navigate-playlist') then
-			local index = mp.get_property_number('playlist-pos-1')
-			if index then elements.menu:select_index(index) end
+			local items, active_item = serialize_playlist()
+			elements.menu:set_items(items, {
+				active_item = active_item,
+				selected_item = active_item
+			})
 		end
 	end
+
+	local items, active_item = serialize_playlist()
 
 	menu:open(items, function(index)
 		mp.commandv('set', 'playlist-pos-1', tostring(index))
@@ -2954,8 +3033,13 @@ mp.add_key_binding(nil, 'navigate-playlist', function()
 		type = 'navigate-playlist',
 		title = 'Playlist',
 		active_item = active_item,
-		on_open = function() mp.register_event('file-loaded', handle_file_loaded) end,
-		on_close = function() mp.unregister_event(handle_file_loaded) end,
+		on_open = function()
+			mp.observe_property('playlist', 'native', handle_playlist_change)
+			mp.observe_property('playlist-pos-1', 'native', handle_playlist_change)
+		end,
+		on_close = function()
+			mp.unobserve_property(handle_playlist_change)
+		end,
 	})
 end)
 mp.add_key_binding(nil, 'navigate-chapters', function()
@@ -3003,7 +3087,7 @@ mp.add_key_binding(nil, 'show-in-directory', function()
 	-- Ignore URLs
 	if is_protocol(path) then return end
 
-	path = ensure_absolute_path(path)
+	path = normalize_path(path)
 
 	if state.os == 'windows' then
 		utils.subprocess_detached({args = {'explorer', '/select,', path}, cancellable = false})
@@ -3024,8 +3108,9 @@ mp.add_key_binding(nil, 'navigate-directory', function()
 		-- Update selected file in directory navigation menu
 		function handle_file_loaded()
 			if menu:is_open('navigate-directory') then
-				local path = mp.get_property_native('path')
-				elements.menu:activate_value(serialize_path(path).path)
+				local path = normalize_path(mp.get_property_native('path'))
+				elements.menu:activate_value(path)
+				elements.menu:select_value(path)
 			end
 		end
 
@@ -3052,12 +3137,18 @@ mp.add_key_binding(nil, 'delete-file-next', function()
 
 	if is_protocol(path) then return end
 
+	path = normalize_path(path)
 	local playlist_count = mp.get_property_native('playlist-count')
 
 	if playlist_count > 1 then
-		mp.commandv('playlist-next', 'force')
+		mp.commandv('playlist-remove', 'current')
 	else
 		local next_file = get_adjacent_media_file(path, 'forward')
+
+		if menu:is_open('navigate-directory') then
+			elements.menu:delete_value(path)
+		end
+
 		if next_file then
 			mp.commandv('loadfile', next_file)
 		else
@@ -3065,11 +3156,11 @@ mp.add_key_binding(nil, 'delete-file-next', function()
 		end
 	end
 
-	os.remove(ensure_absolute_path(path))
+	os.remove(path)
 end)
 mp.add_key_binding(nil, 'delete-file-quit', function()
 	local path = mp.get_property_native('path')
 	if is_protocol(path) then return end
-	os.remove(ensure_absolute_path(path))
+	os.remove(normalize_path(path))
 	mp.command('quit')
 end)
