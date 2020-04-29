@@ -1,3 +1,33 @@
+## 2.6.0 - 2020-Apr-28
+
+New:
+- Added `open-config-directory` command.
+
+Fixed:
+- Volume bar extending past its borders when volume was higher than `volume-max` config.
+
+## 2.5.0 - 2020-Apr-24
+
+New:
+- Added `timeline_start_hidden` options. Function the same as calling `toggle-progress` command once on startup.
+
+Changed:
+- Command `flash-timeline` renamed to `peek-timeline`.
+- Some cursor interaction tweaks.
+
+## 2.4.2 - 2020-Apr-23
+
+Fixed:
+- `delete-file-next` not starting next file on Linux.
+
+## 2.4.1 - 2020-Apr-22
+
+Changed:
+- Tweaked pause indicator styles.
+
+Fixed:
+- **!IMPORTANT!** File navigation not working on linux. I copy & pasted someone elses lua string splitting implementation from stack overflow and it was wrong. What a surprise.
+
 ## 2.4.0 - 2020-Apr-21
 
 New:

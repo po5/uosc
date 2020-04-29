@@ -1,6 +1,6 @@
 --[[
 
-uosc 2.4.0 - 2020-Apr-21 | https://github.com/darsain/uosc
+uosc 2.6.0 - 2020-Apr-24 | https://github.com/darsain/uosc
 
 Minimalistic cursor proximity based UI for MPV player.
 
@@ -26,6 +26,8 @@ timeline_size_max=40
 # same as ^ but when in fullscreen
 timeline_size_min_fullscreen=0
 timeline_size_max_fullscreen=60
+# same thing as calling toggle-progress command once on startup
+timeline_start_hidden=no
 # timeline opacity
 timeline_opacity=0.8
 # top (and bottom in no-border mode) border of background color to help visually
@@ -146,7 +148,7 @@ chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>
 Available keybindings (place into `input.conf`):
 
 ```
-Key  script-binding uosc/flash-timeline
+Key  script-binding uosc/peek-timeline
 Key  script-binding uosc/toggle-progress
 Key  script-binding uosc/context-menu
 Key  script-binding uosc/load-subtitles
@@ -163,6 +165,7 @@ Key  script-binding uosc/last-file
 Key  script-binding uosc/delete-file-next
 Key  script-binding uosc/delete-file-quit
 Key  script-binding uosc/show-in-directory
+Key  script-binding uosc/open-config-directory
 ```
 ]]
 
@@ -184,6 +187,7 @@ local options = {
 	timeline_size_max = 40,
 	timeline_size_min_fullscreen = 0,
 	timeline_size_max_fullscreen = 60,
+	timeline_start_hidden = false,
 	timeline_opacity = 0.8,
 	timeline_border = 1,
 	timeline_step = 5,
@@ -301,13 +305,11 @@ function split(str, pattern)
 	local last_end = 1
 	local start_index, end_index, capture = str:find(full_pattern, 1)
 	while start_index do
-		if start_index ~= 1 or capture ~= '' then
-			list[#list +1] = capture
-		end
+		list[#list +1] = capture
 		last_end = end_index + 1
 		start_index, end_index, capture = str:find(full_pattern, last_end)
 	end
-	if last_end <= #str then
+	if last_end <= (#str + 1) then
 		capture = str:sub(last_end)
 		list[#list +1] = capture
 	end
@@ -508,6 +510,8 @@ end
 
 -- Ensures path is absolute and normalizes slashes to the current platform
 function normalize_path(path)
+	if is_protocol(path) then return path end
+
 	-- Ensure path is absolute
 	if not (path:match('^/') or path:match('^%a+:[/\\]') or path:match('^\\\\')) then
 		path = utils.join_path(state.cwd, path)
@@ -519,11 +523,6 @@ function normalize_path(path)
 	else
 		return path:gsub('\\', '/')
 	end
-end
-
--- Naive check for absolute paths
-function is_absolute_path(path)
-	return path:match('^/') or path:match('^%a+:[/\\]') or path:match('^\\\\')
 end
 
 -- Check if path is a protocol, such as `http://...`
@@ -574,20 +573,20 @@ function get_files_in_directory(directory, allowed_types)
 	return files
 end
 
-function get_adjacent_media_file(file_path, direction)
+function get_adjacent_file(file_path, direction, allowed_types)
 	local current_file = serialize_path(file_path)
-	local files = get_files_in_directory(current_file.dirname, options.media_types)
+	local files = get_files_in_directory(current_file.dirname, allowed_types)
 
 	if not files then return end
 
 	for index, file in ipairs(files) do
 		if current_file.basename == file then
 			if direction == 'forward' then
-				if files[index + 1] then return files[index + 1] end
-				if options.directory_navigation_loops and files[1] then return files[1] end
+				if files[index + 1] then return utils.join_path(current_file.dirname, files[index + 1]) end
+				if options.directory_navigation_loops and files[1] then return utils.join_path(current_file.dirname, files[1]) end
 			else
-				if files[index - 1] then return files[index - 1] end
-				if options.directory_navigation_loops and files[#files] then return files[#files] end
+				if files[index - 1] then return utils.join_path(current_file.dirname, files[index - 1]) end
+				if options.directory_navigation_loops and files[#files] then return utils.join_path(current_file.dirname, files[#files]) end
 			end
 
 			-- This is the only file in directory
@@ -639,7 +638,7 @@ Signature:
 ]]
 local Element = {
 	captures = nil,
-	belongs_to_interactive_proximity = true,
+	is_interactive = false,
 	ax = 0, ay = 0, bx = 0, by = 0,
 	proximity = 0, proximity_raw = infinity,
 }
@@ -791,7 +790,6 @@ function Menu:open(items, open_item, opts)
 
 	elements:add('menu', Element.new({
 		captures = {mouse_buttons = true},
-		belongs_to_interactive_proximity = false,
 		type = nil, -- menu type such as `context-menu`, `navigate-chapters`, ...
 		title = nil,
 		width = nil,
@@ -1314,7 +1312,7 @@ function update_proximities()
 			update_element_cursor_proximity(element)
 		end
 
-		if element.belongs_to_interactive_proximity and element.proximity > highest_proximity then
+		if element.is_interactive and element.proximity > highest_proximity then
 			highest_proximity = element.proximity
 		end
 
@@ -1682,7 +1680,7 @@ function render_volume(this)
 		-- Foreground bar coordinates
 		local height_without_border = slider.height - (options.volume_border * 2)
 		local fax = slider.ax + options.volume_border
-		local fay = slider.ay + (height_without_border * (1 - (state.volume / state.volume_max))) + options.volume_border
+		local fay = slider.ay + (height_without_border * (1 - math.min(state.volume / state.volume_max, 1))) + options.volume_border
 		local fbx = slider.bx - options.volume_border
 		local fby = slider.by - options.volume_border
 
@@ -1790,7 +1788,7 @@ end
 function render_speed(this)
 	if not this.dragging and (elements.curtain.opacity > 0) then return end
 
-	local proximity = math.max(state.interactive_proximity, this.proximity)
+	local proximity = state.interactive_proximity
 	local opacity = this.forced_proximity and this.forced_proximity or (this.dragging and 1 or proximity)
 
 	if opacity == 0 then return end
@@ -2137,10 +2135,11 @@ if itable_find({'flash', 'static'}, options.pause_indicator) then
 	}))
 end
 elements:add('timeline', Element.new({
+	is_interactive = true,
 	captures = {mouse_buttons = true, wheel = true},
 	pressed = false,
 	size_max = 0, size_min = 0, -- set in `on_display_resize` handler based on `state.fullscreen`
-	size_min_override = nil, -- used for toggle-progress command
+	size_min_override = options.timeline_start_hidden and 0 or nil, -- used for toggle-progress command
 	font_size = 0, -- calculated in on_display_resize
 	top_border = options.timeline_border,
 	bottom_border = 0, -- set dynamically in `border` property observer
@@ -2214,6 +2213,7 @@ elements:add('timeline', Element.new({
 	render = render_timeline,
 }))
 elements:add('window_controls', Element.new({
+	is_interactive = true,
 	enabled = false,
 	init = function(this)
 		mp.observe_property('border', 'bool', function(_, border)
@@ -2260,6 +2260,7 @@ elements:add('window_controls_close', Element.new({
 }))
 if itable_find({'left', 'right'}, options.volume) then
 	elements:add('volume', Element.new({
+		is_interactive = true,
 		width = nil, -- set in `on_display_resize` handler based on `state.fullscreen`
 		height = nil, -- set in `on_display_resize` handler based on `state.fullscreen`
 		margin = nil, -- set in `on_display_resize` handler based on `state.fullscreen`
@@ -2710,7 +2711,7 @@ function create_navigate_directory(direction)
 
 		if is_protocol(path) then return end
 
-		local next_file = get_adjacent_media_file(path, direction)
+		local next_file = get_adjacent_file(path, direction, options.media_types)
 
 		if next_file then
 			mp.commandv("loadfile", utils.join_path(serialize_path(path).dirname, next_file))
@@ -2958,7 +2959,7 @@ end)()
 
 -- KEY BINDABLE FEATURES
 
-mp.add_key_binding(nil, 'flash-timeline', function()
+mp.add_key_binding(nil, 'peek-timeline', function()
 	if elements.timeline.proximity > 0.5 then
 		elements.timeline:tween_property('proximity', elements.timeline.proximity, 0)
 	else
@@ -3147,7 +3148,7 @@ mp.add_key_binding(nil, 'delete-file-next', function()
 	if playlist_count > 1 then
 		mp.commandv('playlist-remove', 'current')
 	else
-		local next_file = get_adjacent_media_file(path, 'forward')
+		local next_file = get_adjacent_file(path, 'forward', options.media_types)
 
 		if menu:is_open('navigate-directory') then
 			elements.menu:delete_value(path)
@@ -3167,4 +3168,18 @@ mp.add_key_binding(nil, 'delete-file-quit', function()
 	if is_protocol(path) then return end
 	os.remove(normalize_path(path))
 	mp.command('quit')
+end)
+mp.add_key_binding(nil, 'open-config-directory', function()
+	local config = serialize_path(mp.command_native({'expand-path', '~~/mpv.conf'}))
+	local args
+
+	if state.os == 'windows' then
+		args = {'explorer', '/select,', config.path}
+	elseif state.os == 'macos' then
+		args = {'open', '-R', config.path}
+	elseif state.os == 'linux' then
+		args = {'xdg-open', config.dirname}
+	end
+
+	utils.subprocess_detached({args = args, cancellable = false})
 end)
