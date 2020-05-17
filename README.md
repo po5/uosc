@@ -69,8 +69,8 @@ timeline_step=5
 # display seekable buffered ranges for streaming videos, syntax `color:opacity`,
 # color is an BBGGRR hex code, set to `none` to disable
 timeline_cached_ranges=345433:0.5
-# briefly show timeline on external changes (e.g. seeking with a hotkey)
-timeline_flash=yes
+# floating number font scale adjustment
+timeline_font_scale=1
 
 # timeline chapters style: none, dots, lines, lines-top, lines-bottom
 chapters=dots
@@ -81,32 +81,37 @@ chapters_size=4
 # where to display volume controls: none, left, right
 volume=right
 volume_size=40
-volume_size_fullscreen=40
+volume_size_fullscreen=60
 volume_opacity=0.8
 volume_border=1
-# when dragging/scrolling the slider, volume will change by increments of this value
 volume_step=1
-# briefly show volume slider on external changes (e.g. changed by a hotkey)
-volume_flash=yes
+volume_font_scale=1
 
-# playback speed widget: drag left-right to change, click to reset
+# playback speed widget: mouse drag or wheel to change, click to reset
 speed=no
-speed_size=35
-speed_size_fullscreen=50
+speed_size=46
+speed_size_fullscreen=68
 speed_opacity=1
-# when dragging/scrolling the slider, speed will change by increments of this value
 speed_step=0.1
-# briefly show speed slider on external changes (e.g. changed by a hotkey)
-speed_flash=yes
+speed_font_scale=1
 
 # controls all menus, such as context menu, subtitle loader/selector, etc
-menu_item_height=30
-menu_item_height_fullscreen=45
+menu_item_height=36
+menu_item_height_fullscreen=50
+menu_wasd_navigation=no
+menu_hjkl_navigation=no
 menu_opacity=0.8
+menu_font_scale=1
+
+# top bar with window controls and media title shown only in no-border mode
+top_bar_size=40
+top_bar_size_fullscreen=46
+top_bar_controls=yes
+top_bar_title=yes
 
 # pause video on clicks shorter than this number of milliseconds, 0 to disable
 pause_on_click_shorter_than=0
-# for how long in milliseconds to show elements they're it's being flashed
+# flash duration in milliseconds used by `flash-{element}` commands
 flash_duration=400
 # distances in pixels below which elements are fully faded in/out
 proximity_in=40
@@ -116,17 +121,17 @@ color_foreground=ffffff
 color_foreground_text=000000
 color_background=000000
 color_background_text=ffffff
+# use bold font weight throughout the whole UI
+font_bold=no
 # hide UI when mpv autohides the cursor
 autohide=no
 # can be: none, flash, static
 pause_indicator=flash
-# display window title (filename) in top window controls bar in no-border mode
-title=no
 # load first file when calling next on a last file in a directory and vice versa
 directory_navigation_loops=no
-# file types to display in file explorer when navigating media files
+# file types to look for when navigating media files
 media_types=3gp,avi,bmp,flac,flv,gif,h264,h265,jpeg,jpg,m4a,m4v,mid,midi,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rmvb,svg,tif,tiff,wav,weba,webm,webp,wma,wmv
-# file types to display in file explorer when loading external subtitles
+# file types to look for when loading external subtitles
 subtitle_types=aqt,gsub,jss,sub,ttxt,pjs,psb,rt,smi,slt,ssf,srt,ssa,ass,usf,idx,vt
 # used to approximate text width
 # if you are using some wide font and see a lot of right side clipping in menus,
@@ -176,6 +181,8 @@ font_height_to_letter_width_ratio=0.5
 chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end
 ```
 
+**uosc** respects `osd-font` option, so to change the font you want it to use, you have to change `osd-font` in `mpv.conf`.
+
 ## Keybindings
 
 The only keybinds **uosc** defines by default are menu navigation keys that are active only when one of the menus (context menu, load/select subtitles,...) is active. They are:
@@ -212,37 +219,72 @@ Expands the bottom timeline until pressed again, or next mouse move. Useful to c
 
 Toggles the always visible portion of the timeline. You can look at it as switching `timeline_size_min` option between it's configured value and 0.
 
-#### `context-menu`
+#### `flash-timeline`
+#### `flash-volume`
+#### `flash-speed`
 
-Toggles context menu. Context menu is empty by default and won't show up when this is pressed. Read [Context menu](#context-menu-1) section below to find out how to fill it up with items you want there.
+Commands to briefly flash a specified element. You can use it in your bindings like so:
+
+```
+right        seek  5
+left         seek -5
+shift+right  seek  30; script-binding uosc/flash-timeline
+shift+left   seek -30; script-binding uosc/flash-timeline
+m            cycle mute; script-binding uosc/flash-volume
+up           add volume  10; script-binding uosc/flash-volume
+down         add volume -10; script-binding uosc/flash-volume
+[            add speed -0.25; script-binding uosc/flash-speed
+]            add speed  0.25; script-binding uosc/flash-speed
+\            set speed 1; script-binding uosc/flash-speed
+```
+
+#### `menu`
+
+Toggles menu. Menu is empty by default and won't show up when this is pressed. Read [Menu](#menu-1) section below to find out how to fill it up with items you want there.
 
 #### `load-subtitles`
 
 Displays a file explorer with directory navigation to load external subtitles. Explorer only displays file types defined in `subtitle_types` option.
 
-#### `select-subtitles`
+#### `subtitles`
 
 Menu to select a subtitle track.
 
-#### `select-audio`
+#### `audio`
 
 Menu to select an audio track.
 
-#### `select-video`
+#### `video`
 
 Menu to select a video track.
 
-#### `navigate-playlist`
+#### `playlist`
 
-Menu to select an item from playlist.
+Playlist navigation.
 
-#### `navigate-chapters`
+#### `chapters`
 
-Menu to seek to start of a specific chapter.
+Chapter navigation.
 
-#### `navigate-directory`
+#### `open-file`
 
-Menu to navigate media files in current files' directory with current file preselected.
+Open file menu. Browsing starts in current file directory, or user directory when file not available.
+
+#### `next`
+
+Open next item in playlist, or file in current directory when there is no playlist.
+
+#### `prev`
+
+Open previous item in playlist, or file in current directory when there is no playlist.
+
+#### `first`
+
+Open first item in playlist, or file in current directory when there is no playlist.
+
+#### `last`
+
+Open last item in playlist, or file in current directory when there is no playlist.
 
 #### `next-file`
 
@@ -278,15 +320,15 @@ Show current file in your operating systems' file explorer.
 
 Open directory with `mpv.conf` in file explorer.
 
-## Context menu
+## Menu
 
-**uosc** provides a way to build, display, and use your own context menu. Limitation is that the UI rendering API provided by mpv can only render stuff within window borders, so the menu can't float above it but needs to fit inside. This might be annoying for tiny videos but otherwise it accomplishes the same thing.
+**uosc** provides a way to build, display, and use your own menu. By default the menu is empty and won't show up.
 
-To display the menu, add **uosc**'s `context-menu` command to a key of your choice. Example to bind it to **right click** and **menu** buttons:
+To display the menu, add **uosc**'s `menu` command to a key of your choice. Example to bind it to **right click** and **menu** buttons:
 
 ```
-mbtn_right  script-binding uosc/context-menu
-menu        script-binding uosc/context-menu
+mbtn_right  script-binding uosc/menu
+menu        script-binding uosc/menu
 ```
 
 ***menu** button is the key between **win** and **right_ctrl** buttons that none uses (might not be on your keyboard).*
@@ -335,21 +377,21 @@ q    quit  #!
 Suggested minimal context menu setup to start with:
 
 ```
-menu        script-binding uosc/context-menu
-mbtn_right  script-binding uosc/context-menu
+menu        script-binding uosc/menu
+mbtn_right  script-binding uosc/menu
+o           script-binding uosc/open-file          #! Open file
 alt+s       script-binding uosc/load-subtitles     #! Load subtitles
-S           script-binding uosc/select-subtitles   #! Select subtitles
-A           script-binding uosc/select-audio       #! Select audio
+S           script-binding uosc/subtitles          #! Select subtitles
+A           script-binding uosc/audio              #! Select audio
 ctrl+s      async screenshot                       #! Utils > Screenshot
-P           script-binding uosc/navigate-playlist  #! Utils > Navigate playlist
-C           script-binding uosc/navigate-chapters  #! Utils > Navigate chapters
-D           script-binding uosc/navigate-directory #! Utils > Navigate directory
+P           script-binding uosc/playlist           #! Utils > Playlist
+C           script-binding uosc/chapters           #! Utils > Chapters
 #           script-binding uosc/open-config-directory #! Utils > Open config directory
 #           set video-aspect-override "-1"         #! Aspect ratio > Default
 #           set video-aspect-override "16:9"       #! Aspect ratio > 16:9
 #           set video-aspect-override "4:3"        #! Aspect ratio > 4:3
 #           set video-aspect-override "2.35:1"     #! Aspect ratio > 2.35:1
-o           script-binding uosc/show-in-directory  #! Show in directory
+O           script-binding uosc/show-in-directory  #! Show in directory
 esc         quit #! Quit
 q           quit #!
 ```

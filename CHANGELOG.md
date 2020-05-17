@@ -1,3 +1,109 @@
+## 2.10.0 - 2020-May-17
+
+Element flashing on external changes was a bit too magical. Especially timeline flashing had to implement several filters to not flash on frame steps, or when video loops, and you still couldn't control which seeks were flashing the timeline and which not, so this updated replaces magical flashing option with explicit flashing commands.
+
+New:
+- Commands for flashing elements:
+	- `flash-timeline`
+	- `flash-volume`
+	- `flash-speed`
+
+	You can use them in your keybindings like so:
+
+	```
+	right        seek  5
+	left         seek -5
+	shift+right  seek  30; script-binding uosc/flash-timeline
+	shift+left   seek -30; script-binding uosc/flash-timeline
+	m            cycle mute; script-binding uosc/flash-volume
+	up           add volume  10; script-binding uosc/flash-volume
+	down         add volume -10; script-binding uosc/flash-volume
+	[            add speed -0.25; script-binding uosc/flash-speed
+	]            add speed  0.25; script-binding uosc/flash-speed
+	\            set speed 1; script-binding uosc/flash-speed
+	```
+
+Removed:
+- Since flashing commands above do the job better, options to flash elements automatically have been removed:
+	- `timeline_flash=400`
+	- `volume_flash=400`
+	- `speed_flash=400`
+
+## 2.9.0 - 2020-May-11
+
+Changed:
+- Window controls and title bar (displayed only in no border mode) have been merged into a more configurable `top_bar` entity.
+
+	These options are now gone:
+	- `window_controls=yes`
+	- `title=no`
+
+	Replaced with:
+	- `top_bar_size=40`
+	- `top_bar_size_fullscreen=46`
+	- `top_bar_controls=yes`
+	- `top_bar_title=yes`
+- Menu navigation with **wasd** and **hjkl** keys is now off by default, and can be enabled with `menu_wasd_navigation=yes` and `menu_hjkl_navigation=yes`.
+- Remaining time now prefixed with a minus sign.
+
+Fixed:
+- Volume number bugging out on floating point values.
+
+### 2.8.2 - 2020-May-06
+
+Changed:
+- Tweaked speed widget tiny bit. Default size values changed so if you had them modified they now have to be bigger to achieve the same size as before.
+
+Fixed:
+- Speed widget sometimes resetting speed to 1x on fast drags left.
+
+### 2.8.1 - 2020-May-04
+
+Fixed:
+- Chapters not clearing when new file with no chapters is loaded.
+
+## 2.8.0 - 2020-May-01
+
+New:
+- `{element}_font_scale` and `font_bold` options to tweak font sizes and weight.
+- `window_controls` option to disable window controls even in no-border mode.
+
+Changed:
+- All commands that open menus now toggle the menu instead of always reopening them.
+
+### 2.7.3 - 2020-Apr-30
+
+Fixed:
+- Crash when `volume` set to `none`.
+- Element flashing overwriting proximity state.
+- Fix mouse leave fadeout crashing uosc when volume element is disabled.
+- Fix autohide hiding elements until mouse leaves and enters the window.
+- Fix icons crashing uosc when volume element is disabled.
+
+## 2.7.0 - 2020-Apr-29
+
+New:
+- Added context aware navigation commands:
+	- `next` - open next item in playlist, or file in current directory when there is no playlist
+	- `prev` - open previous item in playlist, or file in current directory when there is no playlist
+	- `first` - open first item in playlist, or file in current directory when there is no playlist
+	- `last` - open next item in playlist, or file current directory when there is no playlist
+
+	Previously playlist and file navigation required separate bindings, now you can merge them together.
+
+Changed:
+- Renamed commands (sorry :x):
+	- `context-menu` -> `menu`
+	- `select-subtitles` -> `subtitles`
+	- `select-audio` -> `audio`
+	- `select-video` -> `video`
+	- `navigate-playlist` -> `playlist`
+	- `navigate-chapters` -> `chapters`
+	- `navigate-directory` -> `open-file`
+- `open-file` command now starts in user directory when current file path not available.
+- All controls now respond to their own proximity instead of fading in whenever cursor is around any of them. This used to be the original behavior, than I changed it to shared proximity thinking it feels better, but after a lot of use I decided to revert it back.
+- All floating texts now use border instead of shadow to make them more readable above light backgrounds. Shadows looked better, but usability won.
+
 ## 2.6.0 - 2020-Apr-28
 
 New:
