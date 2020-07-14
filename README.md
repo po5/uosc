@@ -123,6 +123,8 @@ color_background=000000
 color_background_text=ffffff
 # use bold font weight throughout the whole UI
 font_bold=no
+# show total time instead of time remaining
+total_time=no
 # hide UI when mpv autohides the cursor
 autohide=no
 # can be: none, flash, static
@@ -169,16 +171,16 @@ font_height_to_letter_width_ratio=0.5
 #
 # Examples:
 #
-# Display skippable youtube video sponsor blocks from https://github.com/po5/mpv_sponsorblock
-# ```
-# chapter_ranges=sponsor start<3535a5:0.5>sponsor end
-# ```
-#
 # Display anime openings and endings as ranges:
 # ```
 # chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}
 # ```
-chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end
+#
+# Display skippable youtube video sponsor blocks from https://github.com/po5/mpv_sponsorblock
+# ```
+# chapter_ranges=sponsor start<3535a5:.5>sponsor end, segment start<3535a5:0.5>segment end
+# ```
+chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end, segment start<3535a5:0.5>segment end
 ```
 
 **uosc** respects `osd-font` option, so to change the font you want it to use, you have to change `osd-font` in `mpv.conf`.
@@ -400,11 +402,11 @@ To see all the commands you can bind keys or menu items to, refer to [mpv's list
 
 ## Tips
 
-If the UI feels sluggish/slow to you, it's because when video is playing, the UI rendering frequency is chained to its frame rate, so unless you are the type of person that can't see above 24fps, it does feel sluggish.
+**uosc** places performance as one of the top priorities, so why does the UI feels a bit sluggish/slow/laggy (e.g. seeking indicator lags a bit behind cursor)? Well, it really isn't, **uosc** is **fast**, it just doesn't feel like it because when video is playing, the UI rendering frequency is chained to its frame rate, so unless you are the type of person that can't see above 24fps, it *does* feel sluggish. This is an mpv limitation and I can't do anything about it :(
 
 You can test the smoother operation by pausing the video and then using the UI, which will make it render closer to your display refresh rate.
 
-To get this smoothness also while playing a video, add this to your `mpv.conf` file to enable interpolation:
+You can remedy this a tiny bit by enabling interpolation. Add this to your `mpv.conf` file:
 
 ```
 interpolation=yes

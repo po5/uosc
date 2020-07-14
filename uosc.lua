@@ -1,6 +1,6 @@
 --[[
 
-uosc 2.10.0 - 2020-May-17 | https://github.com/darsain/uosc
+uosc 2.10.1 - 2020-Jun-20 | https://github.com/darsain/uosc
 
 Minimalist cursor proximity based UI for MPV player.
 
@@ -92,6 +92,8 @@ color_background=000000
 color_background_text=ffffff
 # use bold font weight throughout the whole UI
 font_bold=no
+# show total time instead of time remaining
+total_time=no
 # hide UI when mpv autohides the cursor
 autohide=no
 # can be: none, flash, static
@@ -138,16 +140,16 @@ font_height_to_letter_width_ratio=0.5
 #
 # Examples:
 #
-# Display skippable youtube video sponsor blocks from https://github.com/po5/mpv_sponsorblock
-# ```
-# chapter_ranges=sponsor start<3535a5:0.5>sponsor end
-# ```
-#
 # Display anime openings and endings as ranges:
 # ```
 # chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}
 # ```
-chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end
+#
+# Display skippable youtube video sponsor blocks from https://github.com/po5/mpv_sponsorblock
+# ```
+# chapter_ranges=sponsor start<3535a5:.5>sponsor end, segment start<3535a5:0.5>segment end
+# ```
+chapter_ranges=^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end, segment start<3535a5:0.5>segment end
 ```
 
 Available keybindings (place into `input.conf`):
@@ -245,14 +247,15 @@ local options = {
 	color_foreground_text = '000000',
 	color_background = '000000',
 	color_background_text = 'ffffff',
+	total_time = false,
 	font_bold = false,
 	autohide = false,
 	pause_indicator = 'flash',
 	directory_navigation_loops = false,
-	media_types = '3gp,avi,bmp,flac,flv,gif,h264,h265,jpeg,jpg,m4a,m4v,mid,midi,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rmvb,svg,tif,tiff,wav,weba,webm,webp,wma,wmv',
+	media_types = '3gp,asf,avi,bmp,flac,flv,gif,h264,h265,jpeg,jpg,m4a,m4v,mid,midi,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rmvb,svg,tif,tiff,wav,weba,webm,webp,wma,wmv',
 	subtitle_types = 'aqt,gsub,jss,sub,ttxt,pjs,psb,rt,smi,slt,ssf,srt,ssa,ass,usf,idx,vt',
 	font_height_to_letter_width_ratio = 0.5,
-	chapter_ranges = '^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end',
+	chapter_ranges = '^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end, segment start<3535a5:0.5>segment end',
 }
 opt.read_options(options, 'uosc')
 local config = {
@@ -609,6 +612,13 @@ function get_adjacent_file(file_path, direction, allowed_types)
 			return nil
 		end
 	end
+end
+
+-- Can't use `os.remove()` as it fails on paths with unicode characters.
+-- Returns `result, error`, result is table of `status:number(<0=error), stdout, stderr, error_string, killed_by_us:boolean`
+function delete_file(file_path)
+	local args = state.os == 'windows' and {'cmd', '/C', 'del', file_path} or {'rm', file_path}
+	return mp.command_native({name = 'subprocess', args = args, playback_only = false, capture_stdout = true, capture_stderr = true})
 end
 
 -- Ensures chapters are in chronological order
@@ -1427,9 +1437,11 @@ function render_timeline(this)
 			ass:append(ass_opacity(options.timeline_cached_ranges.opacity))
 			ass:pos(0, 0)
 			ass:draw_start()
+			local range_start = math.max(type(range['start']) == 'number' and range['start'] or 0.000001, 0.000001)
+			local range_end = math.min(type(range['end']) and range['end'] or state.duration, state.duration)
 			ass:rect_cw(
-				bbx * (range['start'] / state.duration), range_ay,
-				bbx * (range['end'] / state.duration), range_ay + range_height
+				bbx * (range_start / state.duration), range_ay,
+				bbx * (range_end / state.duration), range_ay + range_height
 			)
 			ass:draw_stop()
 		end
@@ -1534,20 +1546,26 @@ function render_timeline(this)
 			ass:append(state.elapsed_time)
 		end
 
-		-- Remaining time
-		if state.remaining_seconds then
+		-- End time
+		local end_time
+		if options.total_time then
+			end_time = state.total_time
+		else
+			end_time = state.remaining_time
+		end
+		if end_time then
 			ass:new_event()
 			ass:append('{\\blur0\\bord0\\shad0\\1c&H'..options.color_foreground_text..'\\fn'..config.font..'\\fs'..this.font_size..bold_tag..'\\clip('..foreground_coordinates..')')
 			ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1), text_opacity))
 			ass:pos(display.width - spacing, fay + (size / 2))
 			ass:an(6)
-			ass:append('-'..state.remaining_time)
+			ass:append('-'..end_time)
 			ass:new_event()
 			ass:append('{\\blur0\\bord0\\shad1\\1c&H'..options.color_background_text..'\\4c&H'..options.color_background..'\\fn'..config.font..'\\fs'..this.font_size..bold_tag..'\\iclip('..foreground_coordinates..')')
 			ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1), text_opacity))
 			ass:pos(display.width - spacing, fay + (size / 2))
 			ass:an(6)
-			ass:append('-'..state.remaining_time)
+			ass:append('-'..end_time)
 		end
 	end
 
@@ -2855,7 +2873,10 @@ end)()
 -- HOOKS
 mp.register_event('file-loaded', parse_chapters)
 mp.observe_property('chapter-list', 'native', parse_chapters)
-mp.observe_property('duration', 'number', create_state_setter('duration'))
+mp.observe_property('duration', 'number', function(name, val)
+	state.duration = val
+	state.total_time = val and mp.format_time(val) or nil
+end)
 mp.observe_property('media-title', 'string', create_state_setter('media_title'))
 mp.observe_property('playlist-pos-1', 'number', create_state_setter('playlist_pos'))
 mp.observe_property('playlist-count', 'number', create_state_setter('playlist_count'))
@@ -3217,12 +3238,14 @@ mp.add_key_binding(nil, 'delete-file-next', function()
 		end
 	end
 
-	os.remove(path)
+	delete_file(path)
 end)
 mp.add_key_binding(nil, 'delete-file-quit', function()
 	local path = mp.get_property_native('path')
+	print('native path', path)
 	if not path or is_protocol(path) then return end
-	os.remove(normalize_path(path))
+	mp.command('stop')
+	delete_file(normalize_path(path))
 	mp.command('quit')
 end)
 mp.add_key_binding(nil, 'open-config-directory', function()
