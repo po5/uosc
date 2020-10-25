@@ -41,6 +41,10 @@ timeline_cached_ranges=345433:0.5
 # floating number font scale adjustment
 timeline_font_scale=1
 
+# display a-b loop ranges, syntax `color:opacity`,
+# color is an BBGGRR hex code, set to `none` to disable
+ab_loop_ranges=968638:0.5
+
 # timeline chapters style: none, dots, lines, lines-top, lines-bottom
 chapters=dots
 chapters_opacity=0.3
@@ -207,6 +211,8 @@ local options = {
 	timeline_step = 5,
 	timeline_cached_ranges = '345433:0.5',
 	timeline_font_scale = 1,
+
+	ab_loop_ranges = '968638:0.5',
 
 	chapters = 'dots',
 	chapters_opacity = 0.3,
@@ -1473,13 +1479,33 @@ function render_timeline(this)
 		end
 	end
 
+	-- A-B loop
+	if state.ab_loop_a and state.ab_loop_b then
+		local range_height = math.max(foreground_size / 8, size_min)
+		local range_ay = fby - math.floor(range_height / 2 - 1) - math.max(foreground_size, size_min) / 2
+		local range_start = math.min(state.ab_loop_a, state.ab_loop_b)
+		local range_end = math.max(state.ab_loop_a, state.ab_loop_b)
+		local rax = display.width * (range_start / state.duration)
+		local rbx = display.width * (range_end / state.duration)
+		ass:new_event()
+		ass:append('{\\blur0\\bord0\\1c&H'..options.ab_loop_ranges.color..'}')
+		ass:append(ass_opacity(options.ab_loop_ranges.opacity))
+		ass:pos(0, 0)
+		ass:draw_start()
+		ass:rect_cw(
+			bbx * (range_start / state.duration), range_ay,
+			bbx * (range_end / state.duration), range_ay + range_height
+		)
+		ass:draw_stop()
+	end
+
 	-- Chapters
 	if (
 		options.chapters ~= 'none'
 		and (
 			state.chapters ~= nil and #state.chapters > 0
-			or state.ab_loop_a and state.ab_loop_a > 0
-			or state.ab_loop_b and state.ab_loop_b > 0
+			or state.ab_loop_a and not state.ab_loop_b
+			or state.ab_loop_b and not state.ab_loop_a
 		)
 	) then
 		local half_size = size / 2
@@ -1538,16 +1564,26 @@ function render_timeline(this)
 				ass:draw_stop()
 			end
 
+			local chapters = {}
+
 			for i, chapter in ipairs(state.chapters) do
-				draw_chapter(chapter.time)
+				table.insert(chapters, chapter.time)
 			end
 
-			if state.ab_loop_a and state.ab_loop_a > 0 then
-				draw_chapter(state.ab_loop_a)
+			if not state.ab_loop_a or not state.ab_loop_b then
+				if state.ab_loop_a then
+					table.insert(chapters, state.ab_loop_a)
+				end
+
+				if state.ab_loop_b then
+					table.insert(chapters, state.ab_loop_b)
+				end
 			end
 
-			if state.ab_loop_b and state.ab_loop_b > 0 then
-				draw_chapter(state.ab_loop_b)
+			table.sort(chapters)
+
+			for i, chapter in ipairs(chapters) do
+				draw_chapter(chapter)
 			end
 		end
 	end
@@ -2875,6 +2911,11 @@ options.subtitle_types = split(options.subtitle_types, ' *, *')
 options.timeline_cached_ranges = (function()
 	if options.timeline_cached_ranges == '' or options.timeline_cached_ranges == 'no' then return nil end
 	local parts = split(options.timeline_cached_ranges, ':')
+	return parts[1] and {color = parts[1], opacity = tonumber(parts[2])} or nil
+end)()
+options.ab_loop_ranges = (function()
+	if options.ab_loop_ranges == '' or options.ab_loop_ranges == 'no' then return nil end
+	local parts = split(options.ab_loop_ranges, ':')
 	return parts[1] and {color = parts[1], opacity = tonumber(parts[2])} or nil
 end)()
 
