@@ -1,5 +1,5 @@
 <div align="center">
-	<a href="https://darsain.github.io/uosc/preview.webm"><img src="https://darsain.github.io/uosc/preview.png" width="914" height="568"></a>
+	<a href="https://darsain.github.io/uosc/preview.webm"><img src="https://darsain.github.io/uosc/preview.png"></a>
 	<h1>uosc</h1>
 	<p>
 		Minimalist cursor proximity based UI for <a href="https://mpv.io">MPV player</a>.
@@ -15,6 +15,7 @@ Most notable features:
 - UIs for:
 	- Loading external subtitles.
 	- Selecting subtitle/audio/video track.
+	- Selecting stream quality.
 	- Quick directory and playlist navigation.
 - Mouse scroll wheel does multiple things depending on what is the cursor hovering over:
 	- Timeline: seek by `timeline_step` seconds per scroll.
@@ -61,8 +62,7 @@ timeline_size_max_fullscreen=60
 timeline_start_hidden=no
 # timeline opacity
 timeline_opacity=0.8
-# top (and bottom in no-border mode) border of background color to help visually
-# separate elapsed bar from a video of similar color or desktop background
+# top border of background color to help visually separate timeline from video
 timeline_border=1
 # when scrolling above timeline, wheel will seek by this amount of seconds
 timeline_step=5
@@ -109,6 +109,10 @@ top_bar_size_fullscreen=46
 top_bar_controls=yes
 top_bar_title=yes
 
+# window border drawn in no-border mode
+window_border_size=1
+window_border_opacity=0.8
+
 # pause video on clicks shorter than this number of milliseconds, 0 to disable
 pause_on_click_shorter_than=0
 # flash duration in milliseconds used by `flash-{element}` commands
@@ -129,6 +133,8 @@ total_time=no
 autohide=no
 # can be: none, flash, static
 pause_indicator=flash
+# sizes to list in stream quality menu
+stream_quality_options=4320,2160,1440,1080,720,480,360,240,144
 # load first file when calling next on a last file in a directory and vice versa
 directory_navigation_loops=no
 # file types to look for when navigating media files
@@ -267,6 +273,10 @@ Playlist navigation.
 #### `chapters`
 
 Chapter navigation.
+
+#### `stream-quality`
+
+Switch stream quality. This is just a basic re-assignment of `ytdl-format` mpv property from predefined options (configurable with `stream_quality_options`) and video reload, there is no fetching of available formats going on.
 
 #### `open-file`
 
