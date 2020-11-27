@@ -1,6 +1,6 @@
 --[[
 
-uosc 2.11.0 - 2020-Nov-07 | https://github.com/darsain/uosc
+uosc 2.11.1 - 2020-Nov-09 | https://github.com/darsain/uosc
 
 Minimalist cursor proximity based UI for MPV player.
 
@@ -2723,6 +2723,7 @@ function create_state_setter(name)
 	return function(_, value)
 		state[name] = value
 		elements:trigger('prop_'..name, value)
+		request_render()
 	end
 end
 
